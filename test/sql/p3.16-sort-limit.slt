@@ -1,7 +1,77 @@
-# 5 pts
+# 4 pts
 
-statement ok
-set force_optimizer_starter_rule=yes
+# Simple sort
+
+# Default
+query
+select * from  __mock_table_tas_2023 order by office_hour, github_id;
+----
+abigalekim Friday
+David-Lyons Monday
+skyzh Randomly
+arvinwu168 Thursday
+yliang412 Thursday
+Mayank-Baranwal Tuesday
+christopherlim98 Tuesday
+fanyuex2 Tuesday
+yarkhinephyo Wednesday
+
+# ASC
+query
+select * from  __mock_table_tas_2023 order by office_hour asc, github_id desc;
+----
+abigalekim Friday        
+David-Lyons Monday        
+skyzh Randomly      
+yliang412 Thursday      
+arvinwu168 Thursday      
+fanyuex2 Tuesday       
+christopherlim98 Tuesday       
+Mayank-Baranwal Tuesday       
+yarkhinephyo Wednesday     
+
+
+query
+select * from  __mock_table_tas_2023 order by github_id desc;
+----
+yliang412 Thursday
+yarkhinephyo Wednesday
+skyzh Randomly
+fanyuex2 Tuesday
+christopherlim98 Tuesday
+arvinwu168 Thursday
+abigalekim Friday
+Mayank-Baranwal Tuesday
+David-Lyons Monday
+
+
+# Simple limit
+query
+select * from test_simple_seq_2 limit 5;
+----
+0 10
+1 11
+2 12
+3 13
+4 14
+
+
+query
+select * from test_simple_seq_2 limit 15;
+----
+0 10
+1 11
+2 12
+3 13
+4 14
+5 15
+6 16
+7 17
+8 18
+9 19
+
+
+# Harder Test with sort and limit
 
 statement ok
 create table temp_1(colA int, colB int, colC int, colD int);
@@ -216,94 +286,108 @@ insert into temp_2 values
     (78, 494, 8),
     (99, 722, 9);
 
-statement ok
-create table temp_3(colA int, colB int);
-
-statement ok
-insert into temp_3 values
-    (5, 29),
-    (6, 52),
-    (0, 142),
-    (1, 993),
-    (2, 837),
-    (3, 52),
-    (4, 240),
-    (7, 88),
-    (8, 14),
-    (9, 52),
-    (10, 290),
-    (11, 878),
-    (12, 17),
-    (13, 52),
-    (14, 680),
-    (15, 2),
-    (16, 52),
-    (17, 561),
-    (18, 38),
-    (19, 974),
-    (20, 739);
-
-statement ok
-create index temp_1_colA on temp_1(colA);
-
-statement ok
-create index temp_2_colA on temp_2(colA);
-
-query rowsort +ensure:index_join
-select * from __mock_table_1 m1 inner join temp_1 t1 on t1.colA = m1.colB;
+query
+select colB, colD, colA, colC from temp_1 order by colB desc, colD, colA desc limit 20;
 ----
-0 0 0 1 6113 48270
+9 11512 85 849
+9 15441 95 5706
+9 28695 92 2110
+9 69422 90 6826
+9 73848 73 499
+9 78077 57 3683
+9 86073 18 666
+9 92192 84 4626
+8 20385 69 755
+8 24527 33 991
+8 28177 51 9106
+8 56174 8 3074
+8 59586 5 7022
+8 60977 10 398
+8 86798 58 483
+8 96696 16 5252
+8 98787 82 5290
+7 25951 76 4339
+7 29049 72 7027
+7 70355 23 6037
 
 
-query rowsort +ensure:index_join
-select * from temp_3 t3 inner join temp_2 t2 on t3.colB = t2.colA;
+
+query
+select * from temp_1 order by colB desc, colA + colD - colA desc, colA asc limit 20;
 ----
-5 29 29 538 9
-6 52 52 276 2
-3 52 52 276 2
-7 88 88 241 8
-8 14 14 680 4
-9 52 52 276 2
-12 17 17 561 7
-13 52 52 276 2
-15 2 2 837 2
-16 52 52 276 2
-18 38 38 194 8
+84 9 4626 92192
+18 9 666 86073
+57 9 3683 78077
+73 9 499 73848
+90 9 6826 69422
+92 9 2110 28695
+95 9 5706 15441
+85 9 849 11512
+82 8 5290 98787
+16 8 5252 96696
+58 8 483 86798
+10 8 398 60977
+5 8 7022 59586
+8 8 3074 56174
+51 8 9106 28177
+33 8 991 24527
+69 8 755 20385
+50 7 4001 99484
+23 7 6037 70355
+72 7 7027 29049
 
-
-
-# Left join
-statement ok
-create table t1(v1 int);
-
-statement ok
-insert into t1 (select * from __mock_table_123);
-
-statement ok
-create index t1_v1 on t1(v1);
-
-query rowsort +ensure:index_join
-select * from test_simple_seq_2 t2 left join t1 on t1.v1 = t2.col1;
+query
+select colA from (select colC, colA, colB, from temp_2 order by colC - colB + colA, colA limit 20);
 ----
-0 10 integer_null
-1 11 1
-2 12 2
-3 13 3
-4 14 integer_null
-5 15 integer_null
-6 16 integer_null
-7 17 integer_null
-8 18 integer_null
-9 19 integer_null
+1
+19
+54
+44
+41
+82
+28
+46
+40
+62
+48
+11
+27
+2
+58
+89
+90
+75
+71
+37
 
 
 # Repeat
-query rowsort +ensure:index_join
+query rowsort
+select * from __mock_table_123, (select * from temp_1 order by colA desc limit 3);
+----
+1 99 6 4482 57463
+1 98 3 1394 17139
+1 97 1 2273 63790
+2 99 6 4482 57463
+2 98 3 1394 17139
+2 97 1 2273 63790
+3 99 6 4482 57463
+3 98 3 1394 17139
+3 97 1 2273 63790
+
+query rowsort +ensure:nlj_init_check
 select * from
     temp_2 t2 inner join
-    (select distinct(temp_2.colA) from temp_1 inner join temp_2 on temp_1.colC = temp_2.colA) t3
-    on t2.colB  < t3.colA;
+    (select colB, colD, colA, colC from temp_1 order by colB desc, colD, colA desc limit 10 ) t1
+    on t1.colA = t2.colA;
 ----
-15 2 5 34
-50 8 0 34
-
+85 779 5 9 11512 85 849
+95 120 5 9 15441 95 5706
+92 815 2 9 28695 92 2110
+90 914 0 9 69422 90 6826
+73 782 3 9 73848 73 499
+57 346 7 9 78077 57 3683
+18 398 8 9 86073 18 666
+84 711 4 9 92192 84 4626
+69 603 9 8 20385 69 755
+33 701 3 8 24527 33 991
