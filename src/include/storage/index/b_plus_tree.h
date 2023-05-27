@@ -117,6 +117,16 @@ class BPlusTree {
   void RemoveFromFile(const std::string &file_name, Transaction *txn = nullptr);
 
  private:
+  //  auto GetLeafPageRead(const KeyType &key, Transaction *txn) -> const ReadPageGuard &;
+
+  // Helper method for remove
+  void Remove(const KeyType &key, Context &ctx, std::deque<int> &idxes, std::deque<page_id_t> &page_ids,
+              page_id_t root_page_id, Transaction *txn);
+
+  auto Redistribute(LeafPage *left, LeafPage *right, bool left_to_right) -> KeyType;
+
+  auto Redistribute(InternalPage *left, InternalPage *right, bool left_to_right) -> KeyType;
+
   /* Debug Routines for FREE!! */
   void ToGraph(page_id_t page_id, const BPlusTreePage *page, std::ofstream &out);
 

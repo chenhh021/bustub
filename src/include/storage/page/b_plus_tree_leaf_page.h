@@ -58,6 +58,18 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   auto GetNextPageId() const -> page_id_t;
   void SetNextPageId(page_id_t next_page_id);
   auto KeyAt(int index) const -> KeyType;
+  void SetKeyAt(int index, const KeyType &key);
+  auto ValueAt(int index) const -> ValueType;
+  void SetValueAt(int index, const ValueType &value);
+  auto PairAt(int index) const -> const MappingType &;
+  auto GetValue(const KeyType &key, ValueType *value, const KeyComparator &comparator) const -> bool;
+  auto InsertValue(const KeyType &key, const ValueType &value, const KeyComparator &comparator) -> bool;
+  auto IndexAt(const KeyType &key, const KeyComparator &comparator) const -> int;
+  void RemovePairAt(int index);
+  void ReduceToHalf();
+  void InsertAtBack(const KeyType &key, const ValueType &value);
+  void InsertAtBack(const MappingType &pair);
+  void InsertAtFront(const MappingType &pair);
 
   /**
    * @brief for test only return a string representing all keys in

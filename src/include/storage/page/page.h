@@ -16,6 +16,7 @@
 #include <iostream>
 
 #include "common/config.h"
+#include "common/logger.h"
 #include "common/rwlatch.h"
 
 namespace bustub {
@@ -52,10 +53,20 @@ class Page {
   inline auto IsDirty() -> bool { return is_dirty_; }
 
   /** Acquire the page write latch. */
-  inline void WLatch() { rwlatch_.WLock(); }
+  inline void WLatch() {
+    rwlatch_.WLock();
+    std::string log_info =
+        "Thread " + std::to_string(pthread_self()) + ":acquired write latch for page_id " + std::to_string(GetPageId());
+    LOG_DEBUG("%s", log_info.c_str());
+  }
 
   /** Release the page write latch. */
-  inline void WUnlatch() { rwlatch_.WUnlock(); }
+  inline void WUnlatch() {
+    std::string log_info =
+        "Thread " + std::to_string(pthread_self()) + ":release write latch for page_id " + std::to_string(GetPageId());
+    LOG_DEBUG("%s", log_info.c_str());
+    rwlatch_.WUnlock();
+  }
 
   /** Acquire the page read latch. */
   inline void RLatch() { rwlatch_.RLock(); }

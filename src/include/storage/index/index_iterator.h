@@ -23,7 +23,7 @@ INDEX_TEMPLATE_ARGUMENTS
 class IndexIterator {
  public:
   // you may define your own constructor based on your member variables
-  IndexIterator();
+  IndexIterator(BufferPoolManager *bpm, ReadPageGuard *r_guard, int idx, page_id_t page_id, int cur_size);
   ~IndexIterator();  // NOLINT
 
   auto IsEnd() -> bool;
@@ -32,12 +32,21 @@ class IndexIterator {
 
   auto operator++() -> IndexIterator &;
 
-  auto operator==(const IndexIterator &itr) const -> bool { throw std::runtime_error("unimplemented"); }
+  auto operator==(const IndexIterator &itr) const -> bool {
+    return (page_id_ == INVALID_PAGE_ID && itr.page_id_ == INVALID_PAGE_ID) ||
+           (page_id_ == itr.page_id_ && cur_idx_ == itr.cur_idx_);
+  }
 
-  auto operator!=(const IndexIterator &itr) const -> bool { throw std::runtime_error("unimplemented"); }
+  auto operator!=(const IndexIterator &itr) const -> bool { return !(*this == itr); }
 
  private:
   // add your own private member variables here
+  BufferPoolManager *bpm_;
+  std::optional<ReadPageGuard> r_guard_{std::nullopt};
+  page_id_t page_id_;
+  size_t cur_idx_;
+  size_t cur_size_;
+  const B_PLUS_TREE_LEAF_PAGE_TYPE *leaf_ = nullptr;
 };
 
 }  // namespace bustub

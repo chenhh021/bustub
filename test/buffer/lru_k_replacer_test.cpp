@@ -16,7 +16,7 @@
 
 namespace bustub {
 
-TEST(LRUKReplacerTest, DISABLED_SampleTest) {
+TEST(LRUKReplacerTest, SAMPLE_TEST) {
   LRUKReplacer lru_replacer(7, 2);
 
   // Scenario: add six elements to the replacer. We have [1,2,3,4,5]. Frame 6 is non-evictable.
@@ -55,7 +55,9 @@ TEST(LRUKReplacerTest, DISABLED_SampleTest) {
   lru_replacer.RecordAccess(4);
   lru_replacer.RecordAccess(5);
   lru_replacer.RecordAccess(4);
+  ASSERT_EQ(2, lru_replacer.Size());
   lru_replacer.SetEvictable(3, true);
+  ASSERT_EQ(3, lru_replacer.Size());
   lru_replacer.SetEvictable(4, true);
   ASSERT_EQ(4, lru_replacer.Size());
 
@@ -94,5 +96,40 @@ TEST(LRUKReplacerTest, DISABLED_SampleTest) {
   // This operation should not modify size
   ASSERT_EQ(false, lru_replacer.Evict(&value));
   ASSERT_EQ(0, lru_replacer.Size());
+}
+
+TEST(LRUKReplacerTest, AntiO2)
+{
+  LRUKReplacer lru_replacer(3, 3);
+  frame_id_t frame;
+  ASSERT_EQ(lru_replacer.Size(),0);
+  lru_replacer.RecordAccess(1);
+  lru_replacer.RecordAccess(1);
+  lru_replacer.RecordAccess(1);
+  lru_replacer.RecordAccess(2);
+  lru_replacer.RecordAccess(2);
+  lru_replacer.RecordAccess(2);
+  lru_replacer.RecordAccess(1);
+  lru_replacer.SetEvictable(1, true);
+  lru_replacer.SetEvictable(2, true);
+  ASSERT_EQ(lru_replacer.Size(),2);
+  lru_replacer.RecordAccess(3);
+  lru_replacer.SetEvictable(3, true);
+  lru_replacer.Evict(&frame);
+  ASSERT_EQ(frame,3);
+  lru_replacer.Evict(&frame);
+  EXPECT_EQ(frame,1);
+
+  lru_replacer.RecordAccess(1);
+  lru_replacer.RecordAccess(3);
+  lru_replacer.RecordAccess(1);
+  lru_replacer.Evict(&frame);
+  EXPECT_EQ(frame,1);
+  lru_replacer.RecordAccess(3);
+  lru_replacer.RecordAccess(3);
+  lru_replacer.Evict(&frame);
+  EXPECT_EQ(frame,2);
+  lru_replacer.Evict(&frame);
+  EXPECT_EQ(frame,3);
 }
 }  // namespace bustub

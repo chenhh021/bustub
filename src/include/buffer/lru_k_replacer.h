@@ -14,7 +14,10 @@
 
 #include <limits>
 #include <list>
+#include <memory>
 #include <mutex>  // NOLINT
+#include <queue>
+#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -30,10 +33,132 @@ class LRUKNode {
   /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
   // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
 
-  [[maybe_unused]] std::list<size_t> history_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] frame_id_t fid_;
-  [[maybe_unused]] bool is_evictable_{false};
+  std::list<size_t> history_;
+  size_t history_size_ = 0;
+
+ private:
+  size_t k_;
+  frame_id_t fid_;
+  bool is_evictable_{false};
+
+ public:
+  LRUKNode(frame_id_t fid, size_t k) : k_(k), fid_(fid) {}
+
+  auto GetHistorySize() const -> size_t { return history_size_; }
+
+  auto GetK() const -> size_t { return k_; }
+
+  auto GetFrontHistory() const -> size_t { return history_.front(); }
+
+  void SetEvictable(bool evictable) { is_evictable_ = evictable; }
+
+  auto IsEvictable() -> bool { return is_evictable_; }
+
+  auto GetFrameId() const -> int { return fid_; }
+
+  void ClearHistory() {
+    history_.clear();
+    history_size_ = 0;
+  }
+
+  void AddHistory(size_t time) {
+    history_.push_back(time);
+    if (history_size_ == k_) {
+      history_.pop_front();
+    } else {
+      ++history_size_;
+    }
+  }
+
+  //  auto operator>(const LRUKNode& that) const -> bool{
+  //    if(this == &that){
+  //      return false;
+  //    }
+  //
+  //    if(this->history_size_ < k_ && that.history_size_ < k_){
+  //      return this->fid_ > that.fid_;
+  //    }
+  //
+  //    if(this->history_.size() < k_){
+  //      return true;
+  //    }
+  //
+  //    if(that.history_.size() < k_){
+  //      return false;
+  //    }
+  //
+  //    size_t this_size = this->history_.front();
+  //    size_t that_size = that.history_.front();
+  //    return this_size > that_size;
+  //  }
+  //
+  //  auto operator<(const LRUKNode& that) const -> bool{
+  //    if(this == &that){
+  //      return false;
+  //    }
+  //
+  //    if(this->history_size_ < k_ && that.history_size_ < k_){
+  //      return this->fid_ < that.fid_;
+  //    }
+  //
+  //    if(this->history_.size() < k_){
+  //      return false;
+  //    }
+  //
+  //    if(that.history_.size() < k_){
+  //      return true;
+  //    }
+  //
+  //    size_t this_size = this->history_.front();
+  //    size_t that_size = that.history_.front();
+  //    return this_size < that_size;
+  //  }
+};
+
+struct LRUKComparator {
+  auto operator()(const std::shared_ptr<LRUKNode> &left, const std::shared_ptr<LRUKNode> &right) const -> bool {
+    if (left->GetFrameId() == right->GetFrameId()) {
+      return false;
+    }
+
+    size_t k = left->GetK();
+
+    if (left->GetHistorySize() < k && right->GetHistorySize() < k) {
+      return left->GetFrontHistory() < right->GetFrontHistory();
+    }
+
+    if (left->GetHistorySize() < k) {
+      return true;
+    }
+
+    if (right->GetHistorySize() < k) {
+      return false;
+    }
+
+    return left->GetFrontHistory() < right->GetFrontHistory();
+  }
+
+  //  auto operator()(LRUKNode* left, LRUKNode* right) const -> bool {
+  //    if(left == right){
+  //      return false;
+  //    }
+  //
+  //    size_t k = left->GetK();
+  //
+  //    if(left->GetHistorySize() < k && right->GetHistorySize() < k){
+  //      return left->GetFrameId() < right->GetFrameId();
+  //    }
+  //
+  //    if(left->GetHistorySize() < k){
+  //      return true;
+  //    }
+  //
+  //    if(right->GetHistorySize() < k){
+  //      return false;
+  //    }
+  //
+  //    return left->GetFrontHistory() < right->GetFrontHistory();
+  //  }
 };
 
 /**
@@ -150,12 +275,13 @@ class LRUKReplacer {
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
-  [[maybe_unused]] std::unordered_map<frame_id_t, LRUKNode> node_store_;
-  [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
+  std::unordered_map<frame_id_t, std::shared_ptr<LRUKNode>> node_store_;
+  std::set<std::shared_ptr<LRUKNode>, LRUKComparator> ordered_set_;
+  size_t current_timestamp_{0};
+  size_t curr_size_{0};
   [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] std::mutex latch_;
+  size_t k_;
+  std::mutex latch_;
 };
 
 }  // namespace bustub

@@ -23,7 +23,7 @@ namespace bustub {
 
 using bustub::DiskManagerUnlimitedMemory;
 
-TEST(BPlusTreeTests, DISABLED_InsertTest1) {
+TEST(BPlusTreeTests, InsertTest1) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -62,7 +62,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest1) {
   delete bpm;
 }
 
-TEST(BPlusTreeTests, DISABLED_InsertTest2) {
+TEST(BPlusTreeTests, InsertTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -120,7 +120,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest2) {
   delete bpm;
 }
 
-TEST(BPlusTreeTests, DISABLED_InsertTest3) {
+TEST(BPlusTreeTests, InsertTest3) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -133,7 +133,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest3) {
   ASSERT_EQ(page_id, HEADER_PAGE_ID);
 
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator, 2, 3);
   GenericKey<8> index_key;
   RID rid;
   // create transaction
@@ -179,6 +179,74 @@ TEST(BPlusTreeTests, DISABLED_InsertTest3) {
     EXPECT_EQ(location.GetSlotNum(), current_key);
     current_key = current_key + 1;
   }
+
+  current_key = 1;
+  for (auto iterator = tree.Begin(); iterator != tree.End(); ++iterator) {
+    auto location = (*iterator).second;
+    EXPECT_EQ(location.GetPageId(), 0);
+    EXPECT_EQ(location.GetSlotNum(), current_key);
+    current_key = current_key + 1;
+  }
+
+  bpm->UnpinPage(HEADER_PAGE_ID, true);
+  delete transaction;
+  delete bpm;
+}
+
+TEST(BPlusTreeTests, ScaleTest) {
+  // create KeyComparator and index schema
+  auto key_schema = ParseCreateStatement("a bigint");
+  GenericComparator<8> comparator(key_schema.get());
+
+  auto disk_manager = std::make_unique<DiskManagerUnlimitedMemory>();
+  auto *bpm = new BufferPoolManager(30, disk_manager.get());
+  // create and fetch header_page
+  page_id_t page_id;
+  auto header_page = bpm->NewPage(&page_id);
+  // create b+ tree
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator, 2, 3);
+  GenericKey<8> index_key;
+  RID rid;
+  // create transaction
+  auto *transaction = new Transaction(0);
+
+  std::vector<int64_t> keys = {8160, 8026, 166, 5113, 5925, 3038, 4968, 2047, 6350, 6525, 6864, 5584, 5098, 6566, 9172, 3774, 748, 8099, 603};
+  int step = 0;
+  for (auto key : keys) {
+    int64_t value = key & 0xFFFFFFFF;
+    rid.Set(static_cast<int32_t>(key >> 32), value);
+    index_key.SetFromInteger(key);
+    tree.Insert(index_key, rid, transaction);
+    tree.Draw(bpm, "./dots/InsertTest_step" + std::to_string(step++) + "_insert" + std::to_string(key) + ".dot");
+  }
+
+//  std::vector<RID> rids;
+//  for (auto key : keys) {
+//    rids.clear();
+//    index_key.SetFromInteger(key);
+//    tree.GetValue(index_key, &rids);
+//    EXPECT_EQ(rids.size(), 1);
+//
+//    int64_t value = key & 0xFFFFFFFF;
+//    EXPECT_EQ(rids[0].GetSlotNum(), value);
+//  }
+//
+//  int64_t size = 0;
+//  bool is_present;
+//
+//  for (auto key : keys) {
+//    rids.clear();
+//    index_key.SetFromInteger(key);
+//    is_present = tree.GetValue(index_key, &rids);
+//
+//    EXPECT_EQ(is_present, true);
+//    EXPECT_EQ(rids.size(), 1);
+//    EXPECT_EQ(rids[0].GetPageId(), 0);
+//    EXPECT_EQ(rids[0].GetSlotNum(), key);
+//    size = size + 1;
+//  }
+//
+//  EXPECT_EQ(size, keys.size());
 
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete transaction;
