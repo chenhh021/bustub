@@ -285,6 +285,9 @@ select * from temp_1 order by colB desc, colA + colD - colA desc, colA asc limit
 23 7 6037 70355
 72 7 7027 29049
 
+statement ok
+explain select colA from (select colC, colA, colB, from temp_2 order by colC - colB + colA, colA limit 20);
+
 query +ensure:topn
 select colA from (select colC, colA, colB, from temp_2 order by colC - colB + colA, colA limit 20);
 ----

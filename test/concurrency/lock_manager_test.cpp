@@ -128,7 +128,7 @@ void TableLockTest1() {
     delete txns[i];
   }
 }
-TEST(LockManagerTest, DISABLED_TableLockTest1) { TableLockTest1(); }  // NOLINT
+TEST(LockManagerTEST, TableLockTest1) { TableLockTest1(); }  // NOLINT
 
 /** Upgrading single transaction from S -> X */
 void TableLockUpgradeTest1() {
@@ -153,7 +153,53 @@ void TableLockUpgradeTest1() {
 
   delete txn1;
 }
-TEST(LockManagerTest, DISABLED_TableLockUpgradeTest1) { TableLockUpgradeTest1(); }  // NOLINT
+TEST(LockManagerTEST, TableLockUpgradeTest1) { TableLockUpgradeTest1(); }  // NOLINT
+
+void TableLockUpgradeTest3() {
+  LockManager lock_mgr{};
+  TransactionManager txn_mgr{&lock_mgr};
+
+  table_oid_t oid = 0;
+  auto txn1 = txn_mgr.Begin();
+  auto txn2 = txn_mgr.Begin();
+  auto txn3 = txn_mgr.Begin();
+
+
+
+  /** Take S lock */
+  EXPECT_EQ(true, lock_mgr.LockTable(txn1, LockManager::LockMode::SHARED, oid));
+  EXPECT_EQ(true, lock_mgr.LockTable(txn2, LockManager::LockMode::SHARED, oid));
+  EXPECT_EQ(true, lock_mgr.LockTable(txn3, LockManager::LockMode::SHARED, oid));
+  CheckTableLockSizes(txn1, 1, 0, 0, 0, 0);
+  CheckTableLockSizes(txn2, 1, 0, 0, 0, 0);
+  CheckTableLockSizes(txn3, 1, 0, 0, 0, 0);
+
+  /** Upgrade S to X */
+  auto txn1_task = std::thread{[&]() { lock_mgr.LockTable(txn1, LockManager::LockMode::EXCLUSIVE, oid); }};
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  auto txn2_task = std::thread{[&]() { lock_mgr.LockTable(txn2, LockManager::LockMode::EXCLUSIVE, oid); }};
+
+//  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+//  auto txn3_task = std::thread{[&]() { lock_mgr.LockTable(txn3, LockManager::LockMode::EXCLUSIVE, oid); }};
+
+  txn1_task.join();
+  txn2_task.join();
+  //  txn3_task.join();
+
+  txn_mgr.Abort(txn1);
+  txn_mgr.Abort(txn2);
+
+  /** Clean up */
+  txn_mgr.Commit(txn3);
+  CheckCommitted(txn3);
+//  CheckTableLockSizes(txn3, 0, 0, 0, 0, 0);
+
+  delete txn1;
+  delete txn2;
+  delete txn3;
+}
+TEST(LockManagerTEST, DISABLED_TableLockUpgradeTest3) { TableLockUpgradeTest3(); }  // NOLINT
 
 void RowLockTest1() {
   LockManager lock_mgr{};
@@ -209,7 +255,7 @@ void RowLockTest1() {
     delete txns[i];
   }
 }
-TEST(LockManagerTest, DISABLED_RowLockTest1) { RowLockTest1(); }  // NOLINT
+TEST(LockManagerTEST, RowLockTest1) { RowLockTest1(); }  // NOLINT
 
 void TwoPLTest1() {
   LockManager lock_mgr{};
@@ -258,7 +304,7 @@ void TwoPLTest1() {
   delete txn;
 }
 
-TEST(LockManagerTest, DISABLED_TwoPLTest1) { TwoPLTest1(); }  // NOLINT
+TEST(LockManagerTEST, TwoPLTest1) { TwoPLTest1(); }  // NOLINT
 
 void AbortTest1() {
   fmt::print(stderr, "AbortTest1: multiple X should block\n");
@@ -320,6 +366,21 @@ void AbortTest1() {
   delete txn3;
 }
 
-TEST(LockManagerTest, DISABLED_RowAbortTest1) { AbortTest1(); }  // NOLINT
+TEST(LockManagerTEST, RowAbortTest1) { AbortTest1(); }  // NOLINT
+
+void NullUnlockTableTest1() {
+  LockManager lock_mgr{};
+  TransactionManager txn_mgr{&lock_mgr};
+
+  table_oid_t oid = 0;
+  auto txn1 = txn_mgr.Begin();
+
+  /** Unlock a not existed lock*/
+  EXPECT_THROW(lock_mgr.UnlockTable(txn1, oid), TransactionAbortException);
+  EXPECT_EQ(TransactionState::ABORTED, txn1->GetState());
+
+  delete txn1;
+}
+TEST(LockManagerTEST, NullUnlockTableTest1) { NullUnlockTableTest1(); }
 
 }  // namespace bustub

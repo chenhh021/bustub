@@ -89,7 +89,7 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::InsertValue(const KeyType &key, const ValueType
   //  auto cmp = [&](const MappingType &element, const KeyType &val) -> bool { return comparator(element.first, val) <
   //  0; }; int id = std::lower_bound(array_, array_ + GetSize(), key, cmp) - array_;
   int id = IndexAt(key, comparator);
-  if (comparator(KeyAt(id), key) == 0) {
+  if (id != GetSize() && comparator(KeyAt(id), key) == 0) {
     return false;
   }
   auto size = GetSize();

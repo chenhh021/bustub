@@ -27,6 +27,28 @@ INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::~IndexIterator() = default;  // NOLINT
 
 INDEX_TEMPLATE_ARGUMENTS
+INDEXITERATOR_TYPE::IndexIterator(IndexIterator &&that) noexcept
+    : bpm_(that.bpm_),
+      r_guard_(std::move(that.r_guard_)),
+      page_id_(that.page_id_),
+      cur_idx_(that.cur_idx_),
+      cur_size_(that.cur_size_),
+      leaf_(that.leaf_) {}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto INDEXITERATOR_TYPE::operator=(IndexIterator &&that) noexcept -> IndexIterator & {
+  if (this != &that) {
+    bpm_ = that.bpm_;
+    r_guard_ = std::move(that.r_guard_);
+    page_id_ = that.page_id_;
+    cur_idx_ = that.cur_idx_;
+    cur_size_ = that.cur_size_;
+    leaf_ = that.leaf_;
+  }
+  return *this;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::IsEnd() -> bool { return r_guard_ == std::nullopt; }
 
 INDEX_TEMPLATE_ARGUMENTS

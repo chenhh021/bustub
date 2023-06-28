@@ -63,5 +63,9 @@ class TopNExecutor : public AbstractExecutor {
   const TopNPlanNode *plan_;
   /** The child executor from which tuples are obtained */
   std::unique_ptr<AbstractExecutor> child_executor_;
+
+  std::vector<Tuple> heap_;
+
+  size_t idx_ = 0;
 };
 }  // namespace bustub

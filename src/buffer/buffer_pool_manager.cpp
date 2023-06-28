@@ -300,8 +300,8 @@ auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard {
 }
 
 auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard {
-  //  std::string log_info = "Thread "+std::to_string(pthread_self())+":acquire write guard for page_id: " +
-  //  std::to_string(page_id); LOG_DEBUG("%s", log_info.c_str());
+  //    std::string log_info = "Thread "+std::to_string(pthread_self())+":acquire write guard for page_id: " +
+  //    std::to_string(page_id); LOG_DEBUG("%s", log_info.c_str());
   auto physical_page = FetchPage(page_id);
   physical_page->WLatch();
   return {this, physical_page};

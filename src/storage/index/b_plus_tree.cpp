@@ -104,7 +104,8 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     LOG_DEBUG("%s", loginfo.c_str());
 
     new_root_page->Init(leaf_max_size_);
-    new_root_page->InsertValue(key, value, comparator_);
+    //    new_root_page->InsertValue(key, value, comparator_);
+    new_root_page->InsertAtBack(key, value);
     auto header = header_guard.AsMut<BPlusTreeHeaderPage>();
     header->root_page_id_ = root_page_id;
     return true;
@@ -533,6 +534,12 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
   std::optional<ReadPageGuard> guard = bpm_->FetchPageRead(header_page_id_);
   auto root_page = guard->As<BPlusTreeHeaderPage>();
   int root_page_id = root_page->root_page_id_;
+
+  // empty tree
+  if (root_page_id == INVALID_PAGE_ID) {
+    return INDEXITERATOR_TYPE(bpm_, nullptr, 0, INVALID_PAGE_ID, 0);
+  }
+
   ReadPageGuard node_guard = bpm_->FetchPageRead(root_page_id);
   guard = std::nullopt;  // release head
 
@@ -560,6 +567,12 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   std::optional<ReadPageGuard> guard = bpm_->FetchPageRead(header_page_id_);
   auto root_page = guard->As<BPlusTreeHeaderPage>();
   int root_page_id = root_page->root_page_id_;
+
+  // empty tree
+  if (root_page_id == INVALID_PAGE_ID) {
+    return INDEXITERATOR_TYPE(bpm_, nullptr, 0, INVALID_PAGE_ID, 0);
+  }
+
   ReadPageGuard node_guard = bpm_->FetchPageRead(root_page_id);
   guard = std::nullopt;  // release head
 

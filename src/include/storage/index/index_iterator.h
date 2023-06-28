@@ -26,6 +26,11 @@ class IndexIterator {
   IndexIterator(BufferPoolManager *bpm, ReadPageGuard *r_guard, int idx, page_id_t page_id, int cur_size);
   ~IndexIterator();  // NOLINT
 
+  IndexIterator(const IndexIterator &) = delete;
+  auto operator=(const IndexIterator &) -> IndexIterator & = delete;
+  IndexIterator(IndexIterator &&that) noexcept;
+  auto operator=(IndexIterator &&that) noexcept -> IndexIterator &;
+
   auto IsEnd() -> bool;
 
   auto operator*() -> const MappingType &;

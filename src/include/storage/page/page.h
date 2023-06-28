@@ -55,16 +55,16 @@ class Page {
   /** Acquire the page write latch. */
   inline void WLatch() {
     rwlatch_.WLock();
-    std::string log_info =
-        "Thread " + std::to_string(pthread_self()) + ":acquired write latch for page_id " + std::to_string(GetPageId());
-    LOG_DEBUG("%s", log_info.c_str());
+//    std::string log_info =
+//        "Thread " + std::to_string(pthread_self()) + ":acquired write latch for page_id " + std::to_string(GetPageId());
+//    LOG_DEBUG("%s", log_info.c_str());
   }
 
   /** Release the page write latch. */
   inline void WUnlatch() {
-    std::string log_info =
-        "Thread " + std::to_string(pthread_self()) + ":release write latch for page_id " + std::to_string(GetPageId());
-    LOG_DEBUG("%s", log_info.c_str());
+//    std::string log_info =
+//        "Thread " + std::to_string(pthread_self()) + ":release write latch for page_id " + std::to_string(GetPageId());
+//    LOG_DEBUG("%s", log_info.c_str());
     rwlatch_.WUnlock();
   }
 

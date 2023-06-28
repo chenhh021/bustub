@@ -55,4 +55,25 @@ TEST(IsolationLevelTest, DISABLED_InsertTestA) {
                ExpectedOutcome::DirtyRead);
 }
 
+
+// NOLINTNEXTLINE
+TEST(IsolationLevelTest, DISABLED_DeleteTestA) {
+  ExpectTwoTxn("DeleteTestA.1", IsolationLevel::READ_COMMITTED, IsolationLevel::READ_UNCOMMITTED, false, IS_DELETE,
+               ExpectedOutcome::BlockOnRead);
+}
+
+TEST(CommitAbortTest, AbortTestA) {
+  // txn1: INSERT INTO empty_table2 VALUES (200, 20), (201, 21), (202, 22)
+  // txn1: abort
+  // txn2: SELECT * FROM empty_table2;
+
+  auto db = GetDbForVisibilityTest("Test1");
+  auto txn1 = Begin(*db, IsolationLevel::READ_UNCOMMITTED);
+  Commit(*db, txn1);
+  auto txn2 = Begin(*db, IsolationLevel::READ_UNCOMMITTED);
+  Insert(txn2, *db, 234);
+  Abort(*db, txn2);
+//  Commit(*db, txn2);
+}
+
 }  // namespace bustub
