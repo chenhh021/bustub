@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <set>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -91,6 +92,34 @@ class Optimizer {
    * @brief optimize sort + limit as top N
    */
   auto OptimizeSortLimitAsTopN(const AbstractPlanNodeRef &plan) -> AbstractPlanNodeRef;
+
+  /**
+   * @brief Eliminate unnecessary filter executors
+   */
+  auto OptimizeConstantFolding(const AbstractPlanNodeRef &plan) -> AbstractPlanNodeRef;
+
+  /**
+   * @brief Determine whether an expression is a constant, and return the value in constant_expr
+   */
+  auto IsExpressionConstant(const AbstractExpressionRef &expression, Value &constant_val) -> bool;
+
+  auto OptimizeColumnPruning(const AbstractPlanNodeRef &plan) -> AbstractPlanNodeRef;
+
+  auto OutputColumnPruning(const AbstractPlanNodeRef &plan, const std::vector<uint32_t> &remains)
+      -> AbstractPlanNodeRef;
+
+  void RelatedChildColumnsExtract(const std::vector<AbstractExpressionRef> &expressions, std::set<u_int32_t> &idx_sets);
+
+  auto ModifyExpressions(const AbstractExpressionRef &expr, std::unordered_map<u_int32_t, u_int32_t> map)
+      -> AbstractExpressionRef;
+
+  /**
+   * @brief Eliminate duplicate aggregations
+   */
+  void ChildAggregateIndexSetCompact(const AbstractPlanNodeRef &plan, std::vector<u_int32_t> &idx_set,
+                                     std::unordered_map<u_int32_t, u_int32_t> &repeat_idx_map);
+
+  inline auto ColumnEqual(const AbstractExpressionRef &a, const AbstractExpressionRef &b) -> bool;
 
   /**
    * @brief get the estimated cardinality for a table based on the table name. Useful when join reordering. BusTub

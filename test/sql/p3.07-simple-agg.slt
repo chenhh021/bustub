@@ -43,6 +43,9 @@ insert into t2 values (1, 100), (2, 200), (3, 300), (4, 400), (5, 500);
 ----
 5
 
+statement ok
+explain select count(*), min(v1+v2-3), max(2+v2-v1), count(v1+v2+v2), sum(v1-v2+v2), sum(1), max(233), min(1), count(2) from t2;
+
 # Do some ridiculous query
 query
 select count(*), min(v1+v2-3), max(2+v2-v1), count(v1+v2+v2), sum(v1-v2+v2), sum(1), max(233), min(1), count(2) from t2;

@@ -16,6 +16,9 @@ select v5, min(v1), sum(v2), count(*) from __mock_agg_input_big group by v5;
 ----
 233 0 49995000 10000
 
+statement ok
+explain select sum(v1), min(v2), count(*) from __mock_agg_input_big group by v5 + v4;
+
 query rowsort
 select sum(v1), min(v2), count(*) from __mock_agg_input_big group by v5 + v4;
 ----

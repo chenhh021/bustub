@@ -29,6 +29,7 @@ void UpdateExecutor::Init() {
 }
 
 auto UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
+  // ensure only execute once
   if (executed_) {
     return false;
   }

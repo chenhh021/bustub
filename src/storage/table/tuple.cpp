@@ -17,11 +17,17 @@
 #include <vector>
 
 #include "storage/table/tuple.h"
+#include "common/logger.h"
 
 namespace bustub {
 
 // TODO(Amadou): It does not look like nulls are supported. Add a null bitmap?
 Tuple::Tuple(std::vector<Value> values, const Schema *schema) {
+  if(values.size() != schema->GetColumnCount()) {
+    std::string loginfo = "values.size() = " + std::to_string(values.size()) +
+                          ";schema->GetColumnCount() = " + std::to_string(schema->GetColumnCount());
+    LOG_DEBUG("%s", loginfo.c_str());
+  }
   assert(values.size() == schema->GetColumnCount());
 
   // 1. Calculate the size of the tuple.

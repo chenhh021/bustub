@@ -23,8 +23,8 @@ void SeqScanExecutor::Init() {
   table_oid_t table_oid = plan_->GetTableOid();
 
   auto info = exec_ctx_->GetCatalog()->GetTable(table_oid);
-  // auto tmp_it = info->table_->MakeIterator(); // for Halloween problem
-  auto tmp_it = info->table_->MakeEagerIterator();
+  auto tmp_it = info->table_->MakeIterator();  // for Halloween problem, used in lib3
+                                               //  auto tmp_it = info->table_->MakeEagerIterator();
   it_.emplace(std::move(tmp_it));
 
   std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":Init seq_scan_executor";

@@ -59,6 +59,11 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   for (const auto &aggregate_value : aht_iterator_.Val().aggregates_) {
     values.push_back(aggregate_value);
   }
+  if (values.size() != GetOutputSchema().GetColumnCount()) {
+    std::string loginfo = "values.size() = " + std::to_string(values.size()) +
+                          ";schema->GetColumnCount() = " + std::to_string(GetOutputSchema().GetColumnCount());
+    LOG_DEBUG("%s", loginfo.c_str());
+  }
   *tuple = {values, &GetOutputSchema()};
   ++aht_iterator_;
   return true;
