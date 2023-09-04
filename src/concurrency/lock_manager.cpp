@@ -21,9 +21,10 @@ namespace bustub {
 
 auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool {
   // log output
-  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
-                        ":attempt lock table " + std::to_string(oid) + ";lock mode:" + LockModeToString(lock_mode);
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " +
+  //  std::to_string(txn->GetTransactionId()) +
+  //                        ":attempt lock table " + std::to_string(oid) + ";lock mode:" + LockModeToString(lock_mode);
+  //  LOG_DEBUG("%s", loginfo.c_str());
   // check whether compatible with isolation level
   if (!CanTxnTakeLock(txn, lock_mode)) {
     txn->LockTxn();
@@ -69,9 +70,9 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
   }
 
   if (txn->GetState() == TransactionState::ABORTED) {
-    loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
-              ":txn aborted. clean lock table" + std::to_string(oid);
-    LOG_DEBUG("%s", loginfo.c_str());
+    //    loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
+    //              ":txn aborted. clean lock table" + std::to_string(oid);
+    //    LOG_DEBUG("%s", loginfo.c_str());
 
     auto txn_equal = [&](const LockRequestRef &request) -> bool {
       return request->txn_id_ == txn->GetTransactionId() && !request->granted_;
@@ -90,9 +91,9 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
   AddTxnTableLockLabel(txn, lock_mode, oid);
   txn->UnlockTxn();
 
-  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
-            ":granted lock table " + std::to_string(oid) + ";lock mode:" + LockModeToString(lock_mode);
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
+  //            ":granted lock table " + std::to_string(oid) + ";lock mode:" + LockModeToString(lock_mode);
+  //  LOG_DEBUG("%s", loginfo.c_str());
 
   return true;
 }
@@ -100,9 +101,9 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
 auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool {
   const int txn_id = txn->GetTransactionId();
 
-  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn_id) +
-                        ":attempt unlock table " + std::to_string(oid);
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn_id) +
+  //                        ":attempt unlock table " + std::to_string(oid);
+  //  LOG_DEBUG("%s", loginfo.c_str());
 
   std::unique_lock map_lock(table_lock_map_latch_);
   if (table_lock_map_.count(oid) == 0) {
@@ -139,9 +140,10 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
   request_queue->request_queue_.remove(granted_request);
   request_queue->cv_.notify_all();
 
-  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn_id) + ":released lock table " +
-            std::to_string(oid);
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn_id) + ":released lock table "
+  //  +
+  //            std::to_string(oid);
+  //  LOG_DEBUG("%s", loginfo.c_str());
 
   txn->LockTxn();
   queue_lock.unlock();
@@ -169,10 +171,11 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
 }
 
 auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool {
-  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
-                        ":attempt lock row in table" + std::to_string(oid) + "." + rid.ToString() +
-                        ";lock mode:" + LockModeToString(lock_mode);
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " +
+  //  std::to_string(txn->GetTransactionId()) +
+  //                        ":attempt lock row in table" + std::to_string(oid) + "." + rid.ToString() +
+  //                        ";lock mode:" + LockModeToString(lock_mode);
+  //  LOG_DEBUG("%s", loginfo.c_str());
 
   // check intention lock attempt
   if (lock_mode == LockMode::INTENTION_SHARED || lock_mode == LockMode::INTENTION_EXCLUSIVE ||
@@ -230,15 +233,15 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   LockRequestRef cur_request = nullptr;
   while (txn->GetState() != TransactionState::ABORTED &&
          !GrantNewLocksIsPossible(request_queue.get(), txn, cur_request)) {
-    loginfo = "Thread " + std::to_string(pthread_self()) + ":new lock waiting.";
-    LOG_DEBUG("%s", loginfo.c_str());
+    //    loginfo = "Thread " + std::to_string(pthread_self()) + ":new lock waiting.";
+    //    LOG_DEBUG("%s", loginfo.c_str());
     request_queue->cv_.wait(queue_lock);
   }
 
   if (txn->GetState() == TransactionState::ABORTED) {
-    loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
-              ":txn aborted. clean lock table" + std::to_string(oid) + "." + rid.ToString();
-    LOG_DEBUG("%s", loginfo.c_str());
+    //    loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
+    //              ":txn aborted. clean lock table" + std::to_string(oid) + "." + rid.ToString();
+    //    LOG_DEBUG("%s", loginfo.c_str());
     auto txn_equal = [&](const LockRequestRef &request) -> bool {
       return request->txn_id_ == txn->GetTransactionId() && !request->granted_;
     };
@@ -255,19 +258,19 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   AddTxnRowLockLabel(txn, lock_mode, oid, rid);
   txn->UnlockTxn();
 
-  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
-            ":granted lock row in table" + std::to_string(oid) + "." + rid.ToString() +
-            ";lock mode:" + LockModeToString(lock_mode);
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
+  //            ":granted lock row in table" + std::to_string(oid) + "." + rid.ToString() +
+  //            ";lock mode:" + LockModeToString(lock_mode);
+  //  LOG_DEBUG("%s", loginfo.c_str());
 
   return true;
 }
 
 auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID &rid, bool force) -> bool {
   const int txn_id = txn->GetTransactionId();
-  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn_id) +
-                        ":attempt unlock row in table" + std::to_string(oid) + "." + rid.ToString();
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn_id) +
+  //                        ":attempt unlock row in table" + std::to_string(oid) + "." + rid.ToString();
+  //  LOG_DEBUG("%s", loginfo.c_str());
 
   std::unique_lock map_lock(row_lock_map_latch_);
   if (row_lock_map_.count(rid) == 0) {
@@ -317,9 +320,9 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
 
   txn->UnlockTxn();
 
-  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
-            ":released lock row in table" + std::to_string(oid) + "." + rid.ToString();
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
+  //            ":released lock row in table" + std::to_string(oid) + "." + rid.ToString();
+  //  LOG_DEBUG("%s", loginfo.c_str());
 
   return true;
 }
@@ -524,9 +527,9 @@ auto LockManager::UpgradeLockTable(Transaction *txn, LockManager::LockMode lock_
   txn->LockTxn();
   RemoveTxnTableLockLabel(txn, current_lock_mode, oid);
   txn->UnlockTxn();
-  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
-            ":current lock released";
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
+  //            ":current lock released";
+  //  LOG_DEBUG("%s", loginfo.c_str());
 
   if (!CanLockUpgrade(current_lock_mode, lock_mode)) {
     txn->LockTxn();
@@ -542,9 +545,9 @@ auto LockManager::UpgradeLockTable(Transaction *txn, LockManager::LockMode lock_
         std::find_if(request_queue->request_queue_.begin(), request_queue->request_queue_.end(),
                      [&](LockRequestRef &request) -> bool { return request->txn_id_ == request_queue->upgrading_; });
     if (!AreLocksCompatible(lock_mode, (*upgrading_request)->lock_mode_)) {
-      loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
-                ":trigger UPGRADE_CONFLICT when upgrading table lock:" + std::to_string(oid);
-      LOG_DEBUG("%s", loginfo.c_str());
+      //      loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
+      //                ":trigger UPGRADE_CONFLICT when upgrading table lock:" + std::to_string(oid);
+      //      LOG_DEBUG("%s", loginfo.c_str());
       txn->LockTxn();
       txn->SetState(TransactionState::ABORTED);
       txn->UnlockTxn();
@@ -557,9 +560,9 @@ auto LockManager::UpgradeLockTable(Transaction *txn, LockManager::LockMode lock_
   // upgrade the lock. The real grant is done by lockxx function.
   request_queue_data.push_front(std::make_shared<LockRequest>(txn_id, lock_mode, oid));
   request_queue->upgrading_ = txn_id;
-  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
-            ":upgrading tag set when upgrading table lock:" + std::to_string(oid);
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
+  //            ":upgrading tag set when upgrading table lock:" + std::to_string(oid);
+  //  LOG_DEBUG("%s", loginfo.c_str());
 
   queue_lock.unlock();
   request_queue->cv_.notify_all();
@@ -569,9 +572,10 @@ auto LockManager::UpgradeLockTable(Transaction *txn, LockManager::LockMode lock_
 
 auto LockManager::UpgradeLockRow(Transaction *txn, LockManager::LockMode lock_mode, const table_oid_t &oid,
                                  const RID &rid) -> bool {
-  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
-                        ":upgrade row lock:" + std::to_string(oid) + "." + rid.ToString() + ":->" +
-                        LockModeToString(lock_mode);
+  //  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " +
+  //  std::to_string(txn->GetTransactionId()) +
+  //                        ":upgrade row lock:" + std::to_string(oid) + "." + rid.ToString() + ":->" +
+  //                        LockModeToString(lock_mode);
   std::unique_lock map_lock(row_lock_map_latch_);
   // should never be called indeed
   if (row_lock_map_.count(rid) == 0) {
@@ -612,9 +616,9 @@ auto LockManager::UpgradeLockRow(Transaction *txn, LockManager::LockMode lock_mo
   }
 
   if (request_queue->upgrading_ != INVALID_TXN_ID) {
-    loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
-              ":trigger UPGRADE_CONFLICT when upgrading row lock:" + std::to_string(oid) + "." + rid.ToString();
-    LOG_DEBUG("%s", loginfo.c_str());
+    //    loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
+    //              ":trigger UPGRADE_CONFLICT when upgrading row lock:" + std::to_string(oid) + "." + rid.ToString();
+    //    LOG_DEBUG("%s", loginfo.c_str());
     txn->LockTxn();
     txn->SetState(TransactionState::ABORTED);
     txn->UnlockTxn();
@@ -627,9 +631,9 @@ auto LockManager::UpgradeLockRow(Transaction *txn, LockManager::LockMode lock_mo
   // upgrade the lock
   request_queue_data.push_front(std::make_shared<LockRequest>(txn_id, lock_mode, oid, rid));
   request_queue->upgrading_ = txn_id;
-  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
-            ":upgrading tag set when upgrading row lock:" + std::to_string(oid) + "." + rid.ToString();
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  loginfo = "Thread " + std::to_string(pthread_self()) + ":txn " + std::to_string(txn->GetTransactionId()) +
+  //            ":upgrading tag set when upgrading row lock:" + std::to_string(oid) + "." + rid.ToString();
+  //  LOG_DEBUG("%s", loginfo.c_str());
 
   queue_lock.unlock();
   request_queue->cv_.notify_all();

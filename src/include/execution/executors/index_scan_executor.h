@@ -52,5 +52,14 @@ class IndexScanExecutor : public AbstractExecutor {
   BPlusTreeIndexForTwoIntegerColumn *tree_;
 
   std::optional<BPlusTreeIndexIteratorForTwoIntegerColumn> iter_;
+
+  std::optional<BPlusTreeIndexIteratorForTwoIntegerColumn> end_iter_;
+
+  IntegerKeyType key_begin_;
+
+  IntegerKeyType key_end_;
+
+  // for test purpose only
+  [[maybe_unused]] size_t count_ = 0;
 };
 }  // namespace bustub

@@ -84,6 +84,13 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     auto tuple_pair = it_->GetTuple();
     ++(*it_);
     if (!tuple_pair.first.is_deleted_) {
+      // handle predicate, in case that merge filter with seq scan
+      if (plan_->filter_predicate_ != nullptr) {
+        auto value = plan_->filter_predicate_->Evaluate(&tuple_pair.second, plan_->OutputSchema());
+        if (!value.IsNull() && !value.GetAs<bool>()) {
+          continue;
+        }
+      }
       *tuple = tuple_pair.second;
       *rid = tuple_pair.second.GetRid();
       return true;

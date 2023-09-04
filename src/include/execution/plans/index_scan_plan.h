@@ -14,6 +14,7 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "catalog/catalog.h"
 #include "execution/expressions/abstract_expression.h"
@@ -33,6 +34,13 @@ class IndexScanPlanNode : public AbstractPlanNode {
   IndexScanPlanNode(SchemaRef output, index_oid_t index_oid)
       : AbstractPlanNode(std::move(output), {}), index_oid_(index_oid) {}
 
+  IndexScanPlanNode(SchemaRef output, index_oid_t index_oid, AbstractExpressionRef predicate,
+                    std::vector<std::pair<int32_t, int32_t>> &range)
+      : AbstractPlanNode(std::move(output), {}),
+        index_oid_(index_oid),
+        filter_predicate_(std::move(predicate)),
+        range_(std::move(range)) {}
+
   auto GetType() const -> PlanType override { return PlanType::IndexScan; }
 
   /** @return the identifier of the table that should be scanned */
@@ -44,9 +52,17 @@ class IndexScanPlanNode : public AbstractPlanNode {
   index_oid_t index_oid_;
 
   // Add anything you want here for index lookup
+  /** The filter for each tuple */
+  AbstractExpressionRef filter_predicate_;
+
+  /** The range search, in form of {[col1_begin, col1_end], [col2_begin, col2_end], ...} */
+  std::vector<std::pair<int32_t, int32_t>> range_;
 
  protected:
   auto PlanNodeToString() const -> std::string override {
+    if (filter_predicate_) {
+      return fmt::format("IndexScan {{ index_oid={}, filter={} }}", index_oid_, filter_predicate_);
+    }
     return fmt::format("IndexScan {{ index_oid={} }}", index_oid_);
   }
 };

@@ -7,6 +7,7 @@
 #include "execution/expressions/logic_expression.h"
 #include "execution/plans/abstract_plan.h"
 #include "execution/plans/aggregation_plan.h"
+#include "execution/plans/index_scan_plan.h"
 #include "execution/plans/nested_loop_join_plan.h"
 #include "execution/plans/projection_plan.h"
 #include "optimizer/optimizer.h"
@@ -23,7 +24,10 @@ auto Optimizer::OptimizeCustom(const AbstractPlanNodeRef &plan) -> AbstractPlanN
   p = OptimizeColumnPruning(p);
   p = OptimizeMergeProjection(p);
   p = OptimizeMergeFilterNLJ(p);
+  p = OptimizePredicatePushDown(p);
   p = OptimizeNLJAsHashJoin(p);
+  p = OptimizeMergeFilterScan(p);
+  p = OptimizeIndexLookUp(p);
   p = OptimizeOrderByAsIndexScan(p);
   p = OptimizeSortLimitAsTopN(p);
   return p;
@@ -495,6 +499,345 @@ inline auto Optimizer::ColumnEqual(const AbstractExpressionRef &a, const Abstrac
   }
 
   return col_expr_a->GetTupleIdx() == col_expr_b->GetTupleIdx() && col_expr_a->GetColIdx() == col_expr_b->GetColIdx();
+}
+
+auto Optimizer::OptimizePredicatePushDown(const AbstractPlanNodeRef &plan) -> AbstractPlanNodeRef {
+  // when predicate is pushed to the current node, an additional filter node is added, merge it if the following node is
+  // a NestedLoopJoin node
+  auto merged_plan = OptimizeMergeFilterNLJ(plan);
+
+  if (merged_plan->GetType() == PlanType::NestedLoopJoin) {
+    auto nlj_plan = dynamic_cast<const NestedLoopJoinPlanNode *>(merged_plan.get());
+    AbstractExpressionRef left_predicate;
+    AbstractExpressionRef right_predicate;
+    AbstractExpressionRef rem_predicate;
+    ClassifyPredicate(nlj_plan->Predicate(), left_predicate, right_predicate, rem_predicate);
+    if (rem_predicate == nullptr) {
+      rem_predicate = std::make_shared<ConstantValueExpression>(ValueFactory::GetBooleanValue(CmpBool::CmpTrue));
+    }
+    AbstractPlanNodeRef left_child = nullptr;
+    AbstractPlanNodeRef right_child = nullptr;
+
+    if (left_predicate != nullptr) {
+      left_child = std::make_shared<FilterPlanNode>(std::make_shared<Schema>(nlj_plan->GetLeftPlan()->OutputSchema()),
+                                                    left_predicate, nlj_plan->GetLeftPlan());
+    } else {
+      left_child = nlj_plan->GetLeftPlan();
+    }
+
+    if (right_predicate != nullptr) {
+      right_child = std::make_shared<FilterPlanNode>(std::make_shared<Schema>(nlj_plan->GetRightPlan()->OutputSchema()),
+                                                     right_predicate, nlj_plan->GetRightPlan());
+    } else {
+      right_child = nlj_plan->GetRightPlan();
+    }
+    // remember optimize children
+    return std::make_shared<NestedLoopJoinPlanNode>(
+        std::make_shared<Schema>(nlj_plan->OutputSchema()), OptimizePredicatePushDown(left_child),
+        OptimizePredicatePushDown(right_child), rem_predicate, nlj_plan->GetJoinType());
+  }
+
+  std::vector<AbstractPlanNodeRef> children;
+  for (const auto &child : plan->GetChildren()) {
+    children.push_back(OptimizePredicatePushDown(child));
+  }
+
+  return plan->CloneWithChildren(children);
+}
+
+void Optimizer::DecomposePredicateByLogicAnd(const AbstractExpressionRef &expr,
+                                             std::vector<std::vector<AbstractExpressionRef>> &decomposed_lists) {
+  // decomposed_lists = {left_child_list, right_child_list, remaining_list}
+  assert(decomposed_lists.size() == 3);
+  // all expression except and-logic expression is treated as leaf; use level traverse to decompose
+  std::queue<AbstractExpressionRef> que;
+  que.push(expr);
+  while (!que.empty()) {
+    auto cur = que.front();
+    que.pop();
+
+    auto logic_node = dynamic_cast<LogicExpression *>(cur.get());
+    if (logic_node != nullptr && logic_node->logic_type_ == LogicType::And) {
+      que.push(logic_node->GetChildAt(0));
+      que.push(logic_node->GetChildAt(1));
+    } else {
+      int type = PredicateRelation(cur);
+      type = type == -1 ? 2 : type;  // keep the constant predicate to current node if exists
+      decomposed_lists[type].push_back(cur);
+    }
+  }
+}
+
+// 0: related only to the left children; 1: related only to the right child; 2: related to both children; -1: constant
+auto Optimizer::PredicateRelation(const AbstractExpressionRef &expr) -> int {
+  auto col_expr = dynamic_cast<ColumnValueExpression *>(expr.get());
+  if (col_expr != nullptr) {
+    if (col_expr->GetTupleIdx() > 1) {
+      // should not happen
+      return -1;
+    }
+
+    return col_expr->GetTupleIdx();
+  }
+
+  bool left = false;
+  bool right = false;
+
+  for (const auto &child : expr->GetChildren()) {
+    int child_type = PredicateRelation(child);
+    switch (child_type) {
+      case -1:
+        break;
+      case 0:
+        left = true;
+        break;
+      case 1:
+        right = true;
+        break;
+      default:
+        return 2;
+    }
+  }
+
+  if (!left && !right) {
+    return -1;
+  }
+
+  if (left && !right) {
+    return 0;
+  }
+
+  if (!left && right) {
+    return 1;
+  }
+
+  return 2;
+}
+
+void Optimizer::ClassifyPredicate(const AbstractExpressionRef &all, AbstractExpressionRef &left,
+                                  AbstractExpressionRef &right, AbstractExpressionRef &self) {
+  std::vector<std::vector<AbstractExpressionRef>> decomposed_lists(3);
+  decomposed_lists.reserve(3);
+
+  DecomposePredicateByLogicAnd(all, decomposed_lists);
+  left = ComposePredicate(decomposed_lists[0], false);
+  right = ComposePredicate(decomposed_lists[1], true);  // change 1.x to 0.x in predicate
+  self = ComposePredicate(decomposed_lists[2], false);
+}
+
+auto Optimizer::ComposePredicate(const std::vector<AbstractExpressionRef> &list, bool unify_column)
+    -> AbstractExpressionRef {
+  if (list.empty()) {
+    return nullptr;
+  }
+
+  auto base_expr = list[0];
+  if (unify_column) {
+    base_expr = UnifyColumn(base_expr);
+  }
+
+  for (size_t i = 1; i < list.size(); ++i) {
+    auto extend_expr = list[i];
+    if (unify_column) {
+      extend_expr = UnifyColumn(extend_expr);
+    }
+    base_expr = std::make_shared<LogicExpression>(base_expr, extend_expr, LogicType::And);
+  }
+
+  return base_expr;
+}
+
+// change 1.x to 0.x in predicate
+auto Optimizer::UnifyColumn(const AbstractExpressionRef &expr) -> AbstractExpressionRef {
+  auto col_expr = dynamic_cast<ColumnValueExpression *>(expr.get());
+  if (col_expr != nullptr) {
+    return std::make_shared<ColumnValueExpression>(0, col_expr->GetColIdx(), col_expr->GetReturnType());
+  }
+
+  std::vector<AbstractExpressionRef> children;
+  for (const auto &child : expr->GetChildren()) {
+    children.push_back(UnifyColumn(child));
+  }
+
+  return expr->CloneWithChildren(children);
+}
+
+auto Optimizer::OptimizeIndexLookUp(const AbstractPlanNodeRef &plan) -> AbstractPlanNodeRef {
+  auto seq_scan_plan = dynamic_cast<const SeqScanPlanNode *>(plan.get());
+  // only optimize SeqScanPlanNode with filter predicate
+  if (seq_scan_plan == nullptr || seq_scan_plan->filter_predicate_ == nullptr) {
+    return plan;
+  }
+
+  // only supple integer index now
+  std::vector<std::pair<int32_t, int32_t>> range;
+  std::unordered_map<u_int32_t, u_int32_t> col_position;
+  bool is_index_lookup_suitable = PredicateProcessForIndexLookUp(seq_scan_plan->filter_predicate_, range, col_position);
+
+  if (!is_index_lookup_suitable) {
+    return plan;
+  }
+
+  const auto *table_info = catalog_.GetTable(seq_scan_plan->GetTableOid());
+  const auto indices = catalog_.GetTableIndexes(table_info->name_);
+  // find first match index, not look for best match at present
+  for (const auto *index : indices) {
+    const auto &key_attrs = index->index_->GetKeyAttrs();
+    // check index key schema matches columns having range predicates
+    bool valid = true;
+    if (key_attrs.size() <= range.size()) {
+      for (auto key_attr : key_attrs) {
+        if (col_position.count(key_attr) == 0) {
+          valid = false;
+          break;
+        }
+      }
+      if (valid) {
+        std::vector<std::pair<int32_t, int32_t>> reordered_range;
+        reordered_range.reserve(key_attrs.size());
+        for (auto key_attr : key_attrs) {
+          reordered_range.emplace_back(range[col_position[key_attr]]);
+        }
+        return std::make_shared<IndexScanPlanNode>(seq_scan_plan->output_schema_, index->index_oid_,
+                                                   seq_scan_plan->filter_predicate_, reordered_range);
+      }
+    }
+  }
+
+  return plan;
+}
+
+auto Optimizer::PredicateProcessForIndexLookUp(const AbstractExpressionRef &predicate,
+                                               std::vector<std::pair<int32_t, int32_t>> &range,
+                                               std::unordered_map<u_int32_t, u_int32_t> &col_position) -> bool {
+  // order doesn't matter, so just level_traverse
+  std::queue<AbstractExpressionRef> que;
+  que.push(predicate);
+  u_int32_t idx = 0;
+  bool flag = true;
+  // all expression except and-logic expression is treated as leaf; use level traverse to decompose
+  while (!que.empty()) {
+    auto cur = que.front();
+    que.pop();
+
+    auto logic_node = dynamic_cast<LogicExpression *>(cur.get());
+    if (logic_node != nullptr && logic_node->logic_type_ == LogicType::And) {
+      que.push(logic_node->GetChildAt(0));
+      que.push(logic_node->GetChildAt(1));
+    } else {
+      // evaluate whether the expression is x.x >=< const
+      auto cmp_expr = dynamic_cast<ComparisonExpression *>(cur.get());
+      if (cmp_expr == nullptr) {
+        continue;
+      }
+
+      auto left_node = cmp_expr->GetChildAt(0);
+      auto right_node = cmp_expr->GetChildAt(1);
+      auto left_col = dynamic_cast<ColumnValueExpression *>(left_node.get());
+      auto left_const = dynamic_cast<ConstantValueExpression *>(left_node.get());
+      auto right_col = dynamic_cast<ColumnValueExpression *>(right_node.get());
+      auto right_const = dynamic_cast<ConstantValueExpression *>(right_node.get());
+
+      auto cmp_type = cmp_expr->comp_type_;
+      // left child is col value and right child is constant
+      if (left_col != nullptr && right_const != nullptr) {
+        // only NotEqual has no contribute to range search
+        if (cmp_type == ComparisonType::NotEqual) {
+          continue;
+        }
+
+        // tuple id should not matter, as here the columns come from the same table when look up indexes
+        auto col_attr = left_col->GetColIdx();
+        auto value = right_const->val_.GetAs<int32_t>();  // only support int32 index now
+        if (col_position.count(col_attr) == 0) {
+          col_position[col_attr] = idx++;
+          range.emplace_back(BUSTUB_INT32_MIN, BUSTUB_INT32_MAX);
+        }
+        size_t col_idx = col_position[col_attr];
+
+        switch (cmp_type) {
+          case ComparisonType::Equal:
+            range[col_idx].first = value;
+            range[col_idx].second = value;
+            flag = true;
+            break;
+          case ComparisonType::NotEqual:
+            // do nothing
+            break;
+          case ComparisonType::LessThan:
+            range[col_idx].second = value - 1;
+            break;
+          case ComparisonType::LessThanOrEqual:
+            range[col_idx].second = value;
+            break;
+          case ComparisonType::GreaterThan:
+            range[col_idx].first = value + 1;
+            break;
+          case ComparisonType::GreaterThanOrEqual:
+            range[col_idx].first = value;
+            break;
+        }
+      }
+
+      // left child is constant and right child is column value
+      if (left_const != nullptr && right_col != nullptr) {
+        // only NotEqual has no contribute to range search
+        if (cmp_type == ComparisonType::NotEqual) {
+          continue;
+        }
+
+        // tuple id should not matter, as here the columns come from the same table when look up indexes
+        auto col_attr = right_col->GetColIdx();
+        auto value = left_const->val_.GetAs<int32_t>();  // only support int32 index now
+        if (col_position.count(col_attr) == 0) {
+          col_position[col_attr] = idx++;
+          range.emplace_back(BUSTUB_INT32_MIN, BUSTUB_INT32_MAX);
+        }
+        size_t col_idx = col_position[col_attr];
+
+        switch (cmp_type) {
+          case ComparisonType::Equal:
+            range[col_idx].first = value;
+            range[col_idx].second = value;
+            flag = true;
+            break;
+          case ComparisonType::NotEqual:
+            // do nothing
+            break;
+          case ComparisonType::LessThan:
+            range[col_idx].first = value + 1;
+            break;
+          case ComparisonType::LessThanOrEqual:
+            range[col_idx].first = value;
+            break;
+          case ComparisonType::GreaterThan:
+            range[col_idx].second = value - 1;
+            break;
+          case ComparisonType::GreaterThanOrEqual:
+            range[col_idx].second = value;
+            break;
+        }
+      }
+    }
+  }
+
+  if (!flag) {
+    bool left_flag = true;
+    bool right_flag = true;
+    for (auto [l, r] : range) {
+      if (l == BUSTUB_INT32_MIN) {
+        left_flag = false;
+      }
+
+      if (r == BUSTUB_INT32_MAX) {
+        right_flag = false;
+      }
+    }
+
+    flag = left_flag || right_flag;
+  }
+
+  return flag;
 }
 
 }  // namespace bustub

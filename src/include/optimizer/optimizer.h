@@ -122,6 +122,29 @@ class Optimizer {
   inline auto ColumnEqual(const AbstractExpressionRef &a, const AbstractExpressionRef &b) -> bool;
 
   /**
+   * @brief Push down predicates of NestLoopJoins
+   */
+  auto OptimizePredicatePushDown(const AbstractPlanNodeRef &plan) -> AbstractPlanNodeRef;
+
+  void DecomposePredicateByLogicAnd(const AbstractExpressionRef &expr,
+                                    std::vector<std::vector<AbstractExpressionRef>> &decomposed_lists);
+
+  auto PredicateRelation(const AbstractExpressionRef &expr) -> int;
+
+  auto ComposePredicate(const std::vector<AbstractExpressionRef> &list, bool unify_column) -> AbstractExpressionRef;
+
+  void ClassifyPredicate(const AbstractExpressionRef &all, AbstractExpressionRef &left, AbstractExpressionRef &right,
+                         AbstractExpressionRef &self);
+
+  auto UnifyColumn(const AbstractExpressionRef &expr) -> AbstractExpressionRef;
+
+  auto OptimizeIndexLookUp(const AbstractPlanNodeRef &plan) -> AbstractPlanNodeRef;
+
+  auto PredicateProcessForIndexLookUp(const AbstractExpressionRef &predicate,
+                                      std::vector<std::pair<int32_t, int32_t>> &range,
+                                      std::unordered_map<u_int32_t, u_int32_t> &col_position) -> bool;
+
+  /**
    * @brief get the estimated cardinality for a table based on the table name. Useful when join reordering. BusTub
    * doesn't support statistics for now, so it's the only way for you to get the table size :(
    *

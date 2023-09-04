@@ -17,10 +17,10 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, page_id_t header_page_id, BufferPool
       leaf_max_size_(leaf_max_size),
       internal_max_size_(internal_max_size),
       header_page_id_(header_page_id) {
-  std::string loginfo = "Thread " + std::to_string(pthread_self()) +
-                        ":Initialize tree with leaf size: " + std::to_string(leaf_max_size) +
-                        " and internal size:" + std::to_string(internal_max_size);
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  std::string loginfo = "Thread " + std::to_string(pthread_self()) +
+  //                        ":Initialize tree with leaf size: " + std::to_string(leaf_max_size) +
+  //                        " and internal size:" + std::to_string(internal_max_size);
+  //  LOG_DEBUG("%s", loginfo.c_str());
   WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
   auto header_page = guard.AsMut<BPlusTreeHeaderPage>();
   header_page->root_page_id_ = INVALID_PAGE_ID;
@@ -45,9 +45,9 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn) -> bool {
-  std::string loginfo =
-      "Thread " + std::to_string(pthread_self()) + ":Search for key: " + std::to_string(key.ToString());
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  std::string loginfo =
+  //      "Thread " + std::to_string(pthread_self()) + ":Search for key: " + std::to_string(key.ToString());
+  //  LOG_DEBUG("%s", loginfo.c_str());
   // Declaration of context instance.
   if (IsEmpty()) {
     return false;
@@ -90,8 +90,8 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *txn) -> bool {
-  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":Insert key: " + std::to_string(key.ToString());
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":Insert key: " +
+  //  std::to_string(key.ToString()); LOG_DEBUG("%s", loginfo.c_str());
   // if empty, just insert a new leaf page
   if (IsEmpty()) {
     WritePageGuard header_guard = bpm_->FetchPageWrite(header_page_id_);
@@ -100,8 +100,8 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
     auto new_root_page = reinterpret_cast<LeafPage *>(bpm_->NewPage(&root_page_id)->GetData());
 
-    loginfo = "Thread " + std::to_string(pthread_self()) + ":New leaf page with id " + std::to_string(root_page_id);
-    LOG_DEBUG("%s", loginfo.c_str());
+    //    loginfo = "Thread " + std::to_string(pthread_self()) + ":New leaf page with id " +
+    //    std::to_string(root_page_id); LOG_DEBUG("%s", loginfo.c_str());
 
     new_root_page->Init(leaf_max_size_);
     //    new_root_page->InsertValue(key, value, comparator_);
@@ -176,8 +176,8 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     page_id_t new_page_id = INVALID_PAGE_ID;
     auto new_leaf_page = reinterpret_cast<LeafPage *>(bpm_->NewPage(&new_page_id)->GetData());
 
-    loginfo = "Thread " + std::to_string(pthread_self()) + ":New leaf page with id " + std::to_string(new_page_id);
-    LOG_DEBUG("%s", loginfo.c_str());
+    //    loginfo = "Thread " + std::to_string(pthread_self()) + ":New leaf page with id " +
+    //    std::to_string(new_page_id); LOG_DEBUG("%s", loginfo.c_str());
 
     new_leaf_page->Init(leaf_max_size_);
     new_leaf_page->SetNextPageId(leaf_page->GetNextPageId());
@@ -224,9 +224,10 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
       page_id_t new_page_id = INVALID_PAGE_ID;
       auto new_inner_page = reinterpret_cast<InternalPage *>(bpm_->NewPage(&new_page_id)->GetData());
 
-      loginfo =
-          "Thread " + std::to_string(pthread_self()) + ":New internal page with id " + std::to_string(new_page_id);
-      LOG_DEBUG("%s", loginfo.c_str());
+      //      loginfo =
+      //          "Thread " + std::to_string(pthread_self()) + ":New internal page with id " +
+      //          std::to_string(new_page_id);
+      //      LOG_DEBUG("%s", loginfo.c_str());
 
       new_inner_page->Init(internal_max_size_);
       new_inner_page->SetKeyAt(0, lift_key);  // for remove operation
@@ -257,8 +258,8 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     page_id_t new_page_id = INVALID_PAGE_ID;
     auto new_page = reinterpret_cast<InternalPage *>(bpm_->NewPage(&new_page_id)->GetData());
 
-    loginfo = "Thread " + std::to_string(pthread_self()) + ":New internal page with id " + std::to_string(new_page_id);
-    LOG_DEBUG("%s", loginfo.c_str());
+    //    loginfo = "Thread " + std::to_string(pthread_self()) + ":New internal page with id " +
+    //    std::to_string(new_page_id); LOG_DEBUG("%s", loginfo.c_str());
 
     new_page->Init(internal_max_size_);
     auto head_page = ctx.header_page_->AsMut<BPlusTreeHeaderPage>();
@@ -285,8 +286,8 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
-  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":Remove key: " + std::to_string(key.ToString());
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":Remove key: " +
+  //  std::to_string(key.ToString()); LOG_DEBUG("%s", loginfo.c_str());
   if (IsEmpty()) {
     return;
   }
@@ -526,8 +527,8 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Context &ctx, std::deque<int> &i
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
-  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":Initiate iterator begin()";
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  std::string loginfo = "Thread " + std::to_string(pthread_self()) + ":Initiate iterator begin()";
+  //  LOG_DEBUG("%s", loginfo.c_str());
   // Declaration of context instance.
   Context ctx;
   // Get root page
@@ -560,9 +561,9 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
-  std::string loginfo =
-      "Thread " + std::to_string(pthread_self()) + ":Initiate iterator with key: " + std::to_string(key.ToString());
-  LOG_DEBUG("%s", loginfo.c_str());
+  //  std::string loginfo =
+  //      "Thread " + std::to_string(pthread_self()) + ":Initiate iterator with key: " + std::to_string(key.ToString());
+  //  LOG_DEBUG("%s", loginfo.c_str());
   // Get root page
   std::optional<ReadPageGuard> guard = bpm_->FetchPageRead(header_page_id_);
   auto root_page = guard->As<BPlusTreeHeaderPage>();
@@ -586,6 +587,11 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   }
   auto leaf = node_guard.As<LeafPage>();
   int idx = leaf->IndexAt(key, comparator_);
+  // when target key is larger than all keys in the leaf, return the first slot in the next leaf
+  if (idx == leaf->GetSize()) {
+    auto res_it = INDEXITERATOR_TYPE(bpm_, &node_guard, idx - 1, node_guard.PageId(), leaf->GetSize());
+    return std::move(++res_it);
+  }
   return INDEXITERATOR_TYPE(bpm_, &node_guard, idx, node_guard.PageId(), leaf->GetSize());
 }
 
